@@ -8,6 +8,24 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const CORS_ORIGIN =
+  process.env.NEWSLETTER_CORS_ORIGIN || "*";
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": CORS_ORIGIN,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders(),
+  });
+}
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -24,7 +42,7 @@ export async function POST(request: Request) {
     if (!email) {
       return NextResponse.json(
         { error: "Email is required" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders() }
       );
     }
 
@@ -32,7 +50,7 @@ export async function POST(request: Request) {
     if (!isValidEmail(normalizedEmail)) {
       return NextResponse.json(
         { error: "Please enter a valid email address" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders() }
       );
     }
 
@@ -41,7 +59,7 @@ export async function POST(request: Request) {
       console.error("Firebase Admin not configured (FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)");
       return NextResponse.json(
         { error: "Newsletter signup is temporarily unavailable" },
-        { status: 503 }
+        { status: 503, headers: corsHeaders() }
       );
     }
 
@@ -55,21 +73,24 @@ export async function POST(request: Request) {
       const doc = existingSnapshot.docs[0];
       const data = doc.data();
       const status = data?.status ?? "confirmed";
-      return NextResponse.json({
-        success: true,
-        alreadySubscribed: true,
-        message:
-          status === "confirmed"
-            ? "You're already subscribed to our newsletter."
-            : "Please check your inbox to confirm your subscription.",
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          alreadySubscribed: true,
+          message:
+            status === "confirmed"
+              ? "You're already subscribed to our newsletter."
+              : "Please check your inbox to confirm your subscription.",
+        },
+        { headers: corsHeaders() }
+      );
     }
 
     const confirmToken = randomBytes(32).toString("hex");
+    // Use TBHF-1 site URL for confirm link (not request origin - policy site calls this API)
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
-      request.headers.get("origin") ||
-      "https://theblackhistoryfoundation.org";
+      "https://tbhf-2.vercel.app";
     const confirmUrl = `${baseUrl}/api/newsletter/confirm?token=${confirmToken}`;
 
     await newsletterRef.add({
@@ -84,7 +105,7 @@ export async function POST(request: Request) {
       console.error("RESEND_API_KEY not configured for newsletter confirmation");
       return NextResponse.json(
         { error: "Newsletter signup is temporarily unavailable" },
-        { status: 503 }
+        { status: 503, headers: corsHeaders() }
       );
     }
 
@@ -144,20 +165,23 @@ export async function POST(request: Request) {
           error: "Failed to send confirmation email. Please try again later.",
           details: result.error.message,
         },
-        { status: 500 }
+        { status: 500, headers: corsHeaders() }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      message:
-        "Please check your inbox and click the confirmation link to complete your subscription.",
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message:
+          "Please check your inbox and click the confirmation link to complete your subscription.",
+      },
+      { headers: corsHeaders() }
+    );
   } catch (error) {
     console.error("Newsletter signup error:", error);
     return NextResponse.json(
       { error: "Something went wrong. Please try again later." },
-      { status: 500 }
+      { status: 500, headers: corsHeaders() }
     );
   }
 }
