@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import Link from "next/link";
 import { useSocialLinks } from "@/hooks/useSocialLinks";
+import { useTurnstileSiteKey } from "@/hooks/useTurnstileSiteKey";
 
 const GENERIC_SUBMIT_ERROR =
   "Unable to send your message. Please check your information and try again.";
@@ -19,7 +20,7 @@ const ContactForm = () => {
 
   const [formLoadedAt] = useState(() => Date.now());
   const honeypotRef = useRef<HTMLInputElement>(null);
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const { siteKey, loading: turnstileConfigLoading } = useTurnstileSiteKey();
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0);
 
@@ -285,7 +286,11 @@ const ContactForm = () => {
                   </label>
                 </div>
 
-                {siteKey ? (
+                {turnstileConfigLoading ? (
+                  <p className="text-sm text-[var(--text-secondary)] text-center">
+                    Loading security check…
+                  </p>
+                ) : siteKey ? (
                   <div className="flex justify-center">
                     <Turnstile
                       key={turnstileKey}
@@ -305,7 +310,7 @@ const ContactForm = () => {
                 <div>
                   <button
                     type="submit"
-                    disabled={loading || !siteKey}
+                    disabled={loading || turnstileConfigLoading || !siteKey}
                     className="px-8 py-3 bg-[var(--primary)] text-white rounded-md font-helvetica font-bold hover:bg-[var(--primary-dark)] transition-colors disabled:opacity-70 flex items-center"
                   >
                     {loading ? (

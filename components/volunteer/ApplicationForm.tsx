@@ -10,6 +10,7 @@ import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { DEFAULT_VOLUNTEER_POSITIONS } from "@/lib/volunteer-positions";
 import type { VolunteerPosition } from "@/lib/types/volunteer";
+import { useTurnstileSiteKey } from "@/hooks/useTurnstileSiteKey";
 
 const GENERIC_SUBMIT_ERROR =
   "Unable to submit your application. Please check your information and try again.";
@@ -25,7 +26,7 @@ const ApplicationForm = () => {
   const [positionsLoading, setPositionsLoading] = useState(true);
   const [formLoadedAt] = useState(() => Date.now());
   const honeypotRef = useRef<HTMLInputElement>(null);
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const { siteKey, loading: turnstileConfigLoading } = useTurnstileSiteKey();
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0);
   const [formState, setFormState] = useState({
@@ -528,7 +529,11 @@ const ApplicationForm = () => {
                   </label>
                 </div>
 
-                {siteKey ? (
+                {turnstileConfigLoading ? (
+                  <p className="mb-6 text-sm text-[var(--text-secondary)] text-center">
+                    Loading security check…
+                  </p>
+                ) : siteKey ? (
                   <div className="flex justify-center mb-6">
                     <Turnstile
                       key={turnstileKey}
@@ -548,7 +553,7 @@ const ApplicationForm = () => {
                 <div className="text-center">
                   <button
                     type="submit"
-                    disabled={loading || !siteKey}
+                    disabled={loading || turnstileConfigLoading || !siteKey}
                     className="px-8 py-3 bg-[var(--primary)] text-white rounded-md font-helvetica font-bold hover:bg-[var(--primary-dark)] transition-colors disabled:opacity-70 flex items-center justify-center mx-auto"
                   >
                     {loading ? (

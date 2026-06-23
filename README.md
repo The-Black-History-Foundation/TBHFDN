@@ -137,7 +137,8 @@ Firestore rules block public `create` on `contactMessages` and `volunteerApplica
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Yes (forms) | Cloudflare Turnstile site key (public) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Yes (forms) | Cloudflare Turnstile site key (public); also readable at runtime via `/api/turnstile-config` |
+| `TURNSTILE_SITE_KEY` | Alternative | Server-only alias for the Turnstile site key if `NEXT_PUBLIC_*` is not set at build time |
 | `TURNSTILE_SECRET_KEY` | Yes (forms) | Cloudflare Turnstile secret key (server only) |
 | `UPSTASH_REDIS_REST_URL` | Optional | Upstash Redis REST URL for rate limiting |
 | `UPSTASH_REDIS_REST_TOKEN` | Optional | Upstash Redis REST token for rate limiting |
