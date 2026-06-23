@@ -154,9 +154,11 @@ Implementation lives in `lib/form-protection/`; middleware rate-limits `POST /ap
 
 After deploying to Vercel, confirm these steps so forms work in production:
 
-1. Set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in Vercel environment variables (Production at minimum).
+1. Set `TURNSTILE_SITE_KEY` (or `NEXT_PUBLIC_TURNSTILE_SITE_KEY`) and `TURNSTILE_SECRET_KEY` in Vercel environment variables on **every Vercel project** that serves your domains (e.g. both `tbhf-2` and any project attached to `tbhfdn.org`).
 2. Add your production domains (`tbhfdn.org`, `www.tbhfdn.org`, and any Vercel preview URLs you test on) to the Turnstile widget in the Cloudflare dashboard.
-3. Redeploy if you add or change environment variables.
+3. Redeploy after adding or changing environment variables.
+
+To verify env vars are active, open `/api/turnstile-config` on your live domain — it should return a non-empty `siteKey`. The public site key also has a code fallback, but `TURNSTILE_SECRET_KEY` must be set in Vercel for submissions to succeed.
 
 ## Building for Production
 
