@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { checkRateLimit } from "@/lib/form-protection/rate-limit";
+import { getClientIp } from "@/lib/form-protection/request-ip";
 
 const CORS_ORIGIN = process.env.NEWSLETTER_CORS_ORIGIN || "*";
 
@@ -10,12 +13,15 @@ function corsHeaders() {
   };
 }
 
-export const config = {
-  matcher: "/api/newsletter/:path*",
+const RATE_LIMITED_ROUTES: Record<string, string> = {
+  "/api/contact": "contact",
+  "/api/volunteer": "volunteer",
 };
 
-export function middleware(request: Request) {
-  if (request.nextUrl.pathname.startsWith("/api/newsletter")) {
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/api/newsletter")) {
     if (request.method === "OPTIONS") {
       return new NextResponse(null, {
         status: 204,
@@ -28,5 +34,24 @@ export function middleware(request: Request) {
     });
     return response;
   }
+
+  const routeKey = RATE_LIMITED_ROUTES[pathname];
+  if (routeKey && request.method === "POST") {
+    const ip = getClientIp(request);
+    const { success } = await checkRateLimit(`${routeKey}:${ip}`);
+    if (!success) {
+      return NextResponse.json(
+        {
+          error: "Too many attempts from this network. Please try again in an hour.",
+        },
+        { status: 429 }
+      );
+    }
+  }
+
   return NextResponse.next();
 }
+
+export const config = {
+  matcher: ["/api/newsletter/:path*", "/api/contact", "/api/volunteer"],
+};

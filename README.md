@@ -10,6 +10,7 @@ A modern responsive website for The Black History Foundation (TBHF), a non-profi
 - User-friendly donation system with various payment options
 - Volunteer application form and information
 - Contact form for inquiries and partnership opportunities
+- **Form spam protection** on contact and volunteer submissions (Cloudflare Turnstile, honeypot, timing checks, optional per-IP rate limiting)
 - Admin dashboard for managing newsletter subscribers, volunteer applications, and volunteer positions (at `/admin`)
 
 ## Pages
@@ -47,6 +48,11 @@ The website follows a cohesive design system:
 - **Tailwind CSS** - For styling components
 - **Framer Motion** - For animations and transitions
 - **React Intersection Observer** - For scroll-based animations
+- **Cloudflare Turnstile** - Bot protection on public forms
+- **Upstash Redis** - Optional per-IP rate limiting on form API routes
+- **Zod** - Request validation on form API routes
+- **Resend** - Transactional email for form notifications and newsletter
+- **Firebase** - Firestore (data), Authentication (admin), Storage (resume uploads)
 
 ## Getting Started
 
@@ -67,15 +73,20 @@ pnpm install
    - Create a project at [Firebase Console](https://console.firebase.google.com)
    - Enable Firestore Database and Authentication (Email/Password)
    - Copy `.env.example` to `.env.local` and add your Firebase config values
-   - Deploy Firestore rules: `firebase deploy --only firestore:rules`
+   - Deploy Firestore rules: `firebase deploy --only firestore:rules --project <your-project-id>`
    - Create an admin user in Authentication, then add a document to the `admins` collection with the document ID set to that user's UID
 
-4. Run the development server:
+4. Configure form spam protection (required for contact and volunteer forms):
+   - Create a [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) widget and add your site domains
+   - Set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in `.env.local` (and in Vercel for production)
+   - Optionally set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for per-IP rate limiting (5 submissions per hour per route)
+
+5. Run the development server:
 ```bash
 pnpm dev
 ```
 
-5. Open your browser and navigate to `http://localhost:3000`
+6. Open your browser and navigate to `http://localhost:3000`
 
 ## Admin Dashboard
 
@@ -98,6 +109,45 @@ The admin panel includes a full volunteer management system:
 | `VOLUNTEER_FORM_URL` | Optional | Override the application URL in generated job descriptions (default: uses `NEXT_PUBLIC_VERCEL_URL` or production URL) |
 
 **Resume uploads** require Firebase Storage to be enabled and the service account to have Storage Admin permissions. The storage bucket is configured via `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`.
+
+## Form Spam Protection
+
+Contact and volunteer submissions use layered bot protection (similar to the HelpKeepMyMoney project):
+
+| Layer | Description |
+|-------|-------------|
+| **Cloudflare Turnstile** | Users complete a security check before submitting |
+| **Honeypot field** | Hidden field that bots often fill; submissions with it set are rejected |
+| **Minimum submit time** | Rejects submissions completed in under 4 seconds |
+| **Zod validation** | Server-side schema validation on `/api/contact` and `/api/volunteer` |
+| **Per-IP rate limiting** | Optional Upstash sliding window (5 POSTs per hour per route); skipped if Upstash env vars are unset |
+
+### Submission flow
+
+Public forms no longer write directly to Firestore from the browser. Instead:
+
+1. The user completes the form and Turnstile check
+2. The client POSTs to `/api/contact` or `/api/volunteer` with spam-protection fields
+3. Middleware applies rate limiting (when Upstash is configured)
+4. The API validates spam checks, saves to Firestore via Firebase Admin SDK, then sends email via Resend
+
+Firestore rules block public `create` on `contactMessages` and `volunteerApplications`, so bots cannot bypass the API.
+
+### Environment variables for forms
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Yes (forms) | Cloudflare Turnstile site key (public) |
+| `TURNSTILE_SECRET_KEY` | Yes (forms) | Cloudflare Turnstile secret key (server only) |
+| `UPSTASH_REDIS_REST_URL` | Optional | Upstash Redis REST URL for rate limiting |
+| `UPSTASH_REDIS_REST_TOKEN` | Optional | Upstash Redis REST token for rate limiting |
+| `RESEND_API_KEY` | Yes (forms) | Resend API key for notification emails |
+| `RESEND_FROM_EMAIL` | Yes (forms) | Sender address for Resend emails |
+| `ADMIN_EMAIL` | Yes (volunteer) | Comma-separated admin notification recipients |
+| `FIREBASE_CLIENT_EMAIL` | Yes (forms) | Firebase service account email for server-side Firestore writes |
+| `FIREBASE_PRIVATE_KEY` | Yes (forms) | Firebase service account private key |
+
+Implementation lives in `lib/form-protection/`; middleware rate-limits `POST /api/contact` and `POST /api/volunteer`.
 
 ## Building for Production
 

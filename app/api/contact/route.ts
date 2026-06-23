@@ -1,25 +1,97 @@
 import { NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { Resend } from "resend";
+import { z } from "zod";
+import { getAdminDb } from "@/lib/firebase-admin";
+import { GENERIC_FORM_ERROR, validateAntiSpam } from "@/lib/form-protection/validate";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
-export type ContactFormData = {
-  name: string;
-  email: string;
-  phone?: string;
-  subject: string;
-  message: string;
-};
 
 const NOTIFICATION_EMAILS = [
   "info@theblackhistoryfoundation.org",
   "BoardofDirectors@theblackhistoryfoundation.org",
 ];
 
+const BodySchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().min(1).max(320),
+  phone: z.union([z.string(), z.null(), z.undefined()]).optional(),
+  subject: z.string().min(1).max(200),
+  message: z.string().min(1).max(10000),
+  turnstileToken: z.string().min(1).max(5000),
+  formLoadedAt: z.union([z.number(), z.string()]),
+  companyName: z.union([z.string(), z.null(), z.undefined()]).optional(),
+});
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as ContactFormData;
-    const { name, email, phone, subject, message } = body;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: GENERIC_FORM_ERROR }, { status: 400 });
+    }
+
+    const parsed = BodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: GENERIC_FORM_ERROR }, { status: 400 });
+    }
+
+    const p = parsed.data;
+    const spam = await validateAntiSpam(
+      {
+        turnstileToken: p.turnstileToken,
+        formLoadedAt: p.formLoadedAt,
+        companyName: p.companyName,
+      },
+      request.headers
+    );
+    if (!spam.ok) {
+      console.warn("[contact] spam check failed:", spam.reason);
+      return NextResponse.json({ error: GENERIC_FORM_ERROR }, { status: 400 });
+    }
+
+    const name = p.name.trim();
+    const email = p.email.trim();
+    const phone = typeof p.phone === "string" ? p.phone.trim() : "";
+    const subject = p.subject.trim();
+    const message = p.message.trim();
+
+    if (!name || !email || !subject || !message) {
+      return NextResponse.json(
+        { error: "Please fill in all required fields." },
+        { status: 400 }
+      );
+    }
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address." },
+        { status: 400 }
+      );
+    }
+
+    const db = getAdminDb();
+    if (!db) {
+      console.error("Firebase Admin not configured");
+      return NextResponse.json(
+        { error: "Message submission is temporarily unavailable." },
+        { status: 503 }
+      );
+    }
+
+    await db.collection("contactMessages").add({
+      name,
+      email,
+      phone: phone || null,
+      subject,
+      message,
+      submittedAt: FieldValue.serverTimestamp(),
+      status: "pending",
+    });
 
     const fromEmail =
       process.env.RESEND_FROM_EMAIL ||
@@ -44,7 +116,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Notification emails to info and Board of Directors
     const adminSubject = `New Contact Form Message: ${subject} - From ${name}`;
     const adminHtml = `
 <!DOCTYPE html>
@@ -96,7 +167,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Confirmation email to sender
     const confirmSubject =
       "We Received Your Message – The Black History Foundation";
     const confirmHtml = `

@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { motion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { DEFAULT_VOLUNTEER_POSITIONS } from "@/lib/volunteer-positions";
 import type { VolunteerPosition } from "@/lib/types/volunteer";
+
+const GENERIC_SUBMIT_ERROR =
+  "Unable to submit your application. Please check your information and try again.";
 
 const ApplicationForm = () => {
   const searchParams = useSearchParams();
@@ -19,6 +23,11 @@ const ApplicationForm = () => {
 
   const [positions, setPositions] = useState<(VolunteerPosition & { id: string })[]>([]);
   const [positionsLoading, setPositionsLoading] = useState(true);
+  const [formLoadedAt] = useState(() => Date.now());
+  const honeypotRef = useRef<HTMLInputElement>(null);
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
   const [formState, setFormState] = useState({
     name: "",
     email: "",
@@ -139,34 +148,52 @@ const ApplicationForm = () => {
     setLoading(true);
     setError(null);
 
-    if (!db) {
-      setError("Application submission is temporarily unavailable.");
+    if (!siteKey) {
+      setError("Application form is temporarily unavailable. Please try again later.");
       setLoading(false);
       return;
     }
 
-    try {
-      const { positionId, positionTitle, ...rest } = formState;
-      await addDoc(collection(db, "volunteerApplications"), {
-        ...rest,
-        positionId: positionId || undefined,
-        positionTitle: positionTitle || undefined,
-        submittedAt: serverTimestamp(),
-        status: "pending",
-      });
+    if (!turnstileToken) {
+      setError("Please complete the security check before submitting.");
+      setLoading(false);
+      return;
+    }
 
-      // Send email notifications via Resend (admin + volunteer confirmation)
+    const companyName = honeypotRef.current?.value?.trim() ?? "";
+
+    try {
       const emailRes = await fetch("/api/volunteer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formState),
+        body: JSON.stringify({
+          ...formState,
+          turnstileToken,
+          formLoadedAt,
+          companyName,
+        }),
       });
+
+      const data = (await emailRes.json().catch(() => ({}))) as {
+        error?: string;
+        success?: boolean;
+      };
+
+      if (emailRes.status === 429) {
+        setError("Too many attempts from this network. Please try again in an hour.");
+        return;
+      }
+
       if (!emailRes.ok) {
-        console.warn("Emails could not be sent:", await emailRes.text());
-        // Don't fail the submission - data is saved to Firebase
+        setError(
+          typeof data.error === "string" ? data.error : GENERIC_SUBMIT_ERROR
+        );
+        return;
       }
 
       setSubmitted(true);
+      setTurnstileToken(null);
+      setTurnstileKey((k) => k + 1);
     } catch (err) {
       setError(
         err instanceof Error
@@ -215,8 +242,38 @@ const ApplicationForm = () => {
             >
               <form
                 onSubmit={handleSubmit}
-                className="bg-[var(--bg-secondary)] p-8 rounded-lg"
+                className="bg-[var(--bg-secondary)] p-8 rounded-lg relative"
+                autoComplete="off"
               >
+                <div
+                  className="absolute"
+                  style={{
+                    left: -9999,
+                    top: "auto",
+                    height: 1,
+                    width: 1,
+                    overflow: "hidden",
+                  }}
+                  aria-hidden="true"
+                >
+                  <label htmlFor="volunteer-company-name">Company</label>
+                  <input
+                    id="volunteer-company-name"
+                    ref={honeypotRef}
+                    name="company_name"
+                    type="text"
+                    tabIndex={-1}
+                    defaultValue=""
+                    readOnly
+                    onFocus={(e) => {
+                      e.target.removeAttribute("readonly");
+                    }}
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore
+                    data-bwignore
+                  />
+                </div>
                 {error && (
                   <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md text-sm">
                     {error}
@@ -471,10 +528,27 @@ const ApplicationForm = () => {
                   </label>
                 </div>
 
+                {siteKey ? (
+                  <div className="flex justify-center mb-6">
+                    <Turnstile
+                      key={turnstileKey}
+                      siteKey={siteKey}
+                      onSuccess={(t) => setTurnstileToken(t)}
+                      onExpire={() => setTurnstileToken(null)}
+                      onError={() => setTurnstileToken(null)}
+                    />
+                  </div>
+                ) : (
+                  <p className="mb-6 p-3 bg-amber-50 text-amber-800 rounded-md text-sm text-center">
+                    The security check could not load, so applications cannot be submitted right now.
+                    Please try again later.
+                  </p>
+                )}
+
                 <div className="text-center">
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || !siteKey}
                     className="px-8 py-3 bg-[var(--primary)] text-white rounded-md font-helvetica font-bold hover:bg-[var(--primary-dark)] transition-colors disabled:opacity-70 flex items-center justify-center mx-auto"
                   >
                     {loading ? (

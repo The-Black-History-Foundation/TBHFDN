@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { Resend } from "resend";
+import { z } from "zod";
+import { getAdminDb } from "@/lib/firebase-admin";
+import { GENERIC_FORM_ERROR, validateAntiSpam } from "@/lib/form-protection/validate";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -12,20 +16,23 @@ const VOLUNTEER_AREAS: Record<string, string> = {
   tech: "Technology & Development",
 };
 
-export type VolunteerFormData = {
-  name: string;
-  email: string;
-  phone?: string;
-  city: string;
-  state: string;
-  interests: string[];
-  experience?: string;
-  availability: string;
-  motivation: string;
-  referral?: string;
-  positionId?: string;
-  positionTitle?: string;
-};
+const BodySchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().min(1).max(320),
+  phone: z.union([z.string(), z.null(), z.undefined()]).optional(),
+  city: z.string().min(1).max(200),
+  state: z.string().min(1).max(100),
+  interests: z.array(z.string()).min(1).max(20),
+  experience: z.union([z.string(), z.null(), z.undefined()]).optional(),
+  availability: z.string().min(1).max(500),
+  motivation: z.string().min(1).max(10000),
+  referral: z.union([z.string(), z.null(), z.undefined()]).optional(),
+  positionId: z.union([z.string(), z.null(), z.undefined()]).optional(),
+  positionTitle: z.union([z.string(), z.null(), z.undefined()]).optional(),
+  turnstileToken: z.string().min(1).max(5000),
+  formLoadedAt: z.union([z.number(), z.string()]),
+  companyName: z.union([z.string(), z.null(), z.undefined()]).optional(),
+});
 
 function formatInterests(interests: string[]): string {
   return interests
@@ -34,22 +41,89 @@ function formatInterests(interests: string[]): string {
     .join(", ");
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as VolunteerFormData;
-    const {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: GENERIC_FORM_ERROR }, { status: 400 });
+    }
+
+    const parsed = BodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: GENERIC_FORM_ERROR }, { status: 400 });
+    }
+
+    const p = parsed.data;
+    const spam = await validateAntiSpam(
+      {
+        turnstileToken: p.turnstileToken,
+        formLoadedAt: p.formLoadedAt,
+        companyName: p.companyName,
+      },
+      request.headers
+    );
+    if (!spam.ok) {
+      console.warn("[volunteer] spam check failed:", spam.reason);
+      return NextResponse.json({ error: GENERIC_FORM_ERROR }, { status: 400 });
+    }
+
+    const name = p.name.trim();
+    const email = p.email.trim();
+    const phone = typeof p.phone === "string" ? p.phone.trim() : "";
+    const city = p.city.trim();
+    const state = p.state.trim();
+    const interests = p.interests;
+    const experience = typeof p.experience === "string" ? p.experience.trim() : "";
+    const availability = p.availability.trim();
+    const motivation = p.motivation.trim();
+    const referral = typeof p.referral === "string" ? p.referral.trim() : "";
+    const positionId = typeof p.positionId === "string" ? p.positionId.trim() : "";
+    const positionTitle = typeof p.positionTitle === "string" ? p.positionTitle.trim() : "";
+
+    if (!name || !email || !city || !state || !availability || !motivation) {
+      return NextResponse.json(
+        { error: "Please fill in all required fields." },
+        { status: 400 }
+      );
+    }
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address." },
+        { status: 400 }
+      );
+    }
+
+    const db = getAdminDb();
+    if (!db) {
+      console.error("Firebase Admin not configured");
+      return NextResponse.json(
+        { error: "Application submission is temporarily unavailable." },
+        { status: 503 }
+      );
+    }
+
+    await db.collection("volunteerApplications").add({
       name,
       email,
-      phone,
+      phone: phone || null,
       city,
       state,
       interests,
-      experience,
+      experience: experience || null,
       availability,
       motivation,
-      referral,
-      positionTitle,
-    } = body;
+      referral: referral || null,
+      positionId: positionId || null,
+      positionTitle: positionTitle || null,
+      submittedAt: FieldValue.serverTimestamp(),
+      status: "pending",
+    });
 
     const adminEmails = (process.env.ADMIN_EMAIL || "")
       .split(",")
@@ -82,9 +156,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const interestsLabel = formatInterests(interests || []);
+    const interestsLabel = formatInterests(interests);
 
-    // 1. Admin notification email
     const adminSubject = `New Volunteer Application: ${name}`;
     const adminHtml = `
 <!DOCTYPE html>
@@ -142,7 +215,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Volunteer confirmation email
     const volunteerSubject = "Thank You for Your Volunteer Application – The Black History Foundation";
     const volunteerHtml = `
 <!DOCTYPE html>

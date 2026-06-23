@@ -13,15 +13,15 @@ service cloud.firestore {
       allow read, delete: if request.auth != null && isAdmin();
     }
 
-    // Volunteer applications: anyone can create, only admins can read/update/delete
+    // Volunteer applications: server-only create (API with spam protection); admins can read/update/delete
     match /volunteerApplications/{docId} {
-      allow create: if true;
+      allow create: if false;
       allow read, update, delete: if request.auth != null && isAdmin();
     }
 
-    // Contact messages: anyone can create, only admins can read/update/delete
+    // Contact messages: server-only create (API with spam protection); admins can read/update/delete
     match /contactMessages/{docId} {
-      allow create: if true;
+      allow create: if false;
       allow read, update, delete: if request.auth != null && isAdmin();
     }
 

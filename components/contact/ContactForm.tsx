@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { motion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import Link from "next/link";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useSocialLinks } from "@/hooks/useSocialLinks";
+
+const GENERIC_SUBMIT_ERROR =
+  "Unable to send your message. Please check your information and try again.";
 
 const ContactForm = () => {
   const socialLinks = useSocialLinks();
@@ -14,6 +16,12 @@ const ContactForm = () => {
     triggerOnce: true,
     threshold: 0.1,
   });
+
+  const [formLoadedAt] = useState(() => Date.now());
+  const honeypotRef = useRef<HTMLInputElement>(null);
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
 
   const [formState, setFormState] = useState({
     name: "",
@@ -44,31 +52,52 @@ const ContactForm = () => {
     setLoading(true);
     setError(null);
 
-    if (!db) {
-      setError("Message submission is temporarily unavailable.");
+    if (!siteKey) {
+      setError("Contact form is temporarily unavailable. Please try again later.");
       setLoading(false);
       return;
     }
 
-    try {
-      await addDoc(collection(db, "contactMessages"), {
-        ...formState,
-        submittedAt: serverTimestamp(),
-        status: "pending",
-      });
+    if (!turnstileToken) {
+      setError("Please complete the security check before submitting.");
+      setLoading(false);
+      return;
+    }
 
-      // Send email notifications via Resend (info, Board, confirmation)
+    const companyName = honeypotRef.current?.value?.trim() ?? "";
+
+    try {
       const emailRes = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formState),
+        body: JSON.stringify({
+          ...formState,
+          turnstileToken,
+          formLoadedAt,
+          companyName,
+        }),
       });
+
+      const data = (await emailRes.json().catch(() => ({}))) as {
+        error?: string;
+        success?: boolean;
+      };
+
+      if (emailRes.status === 429) {
+        setError("Too many attempts from this network. Please try again in an hour.");
+        return;
+      }
+
       if (!emailRes.ok) {
-        console.warn("Emails could not be sent:", await emailRes.text());
-        // Don't fail the submission - data is saved to Firebase
+        setError(
+          typeof data.error === "string" ? data.error : GENERIC_SUBMIT_ERROR
+        );
+        return;
       }
 
       setSubmitted(true);
+      setTurnstileToken(null);
+      setTurnstileKey((k) => k + 1);
     } catch (err) {
       setError(
         err instanceof Error
@@ -99,7 +128,36 @@ const ContactForm = () => {
             </p>
 
             {!submitted ? (
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6 relative" autoComplete="off">
+                <div
+                  className="absolute"
+                  style={{
+                    left: -9999,
+                    top: "auto",
+                    height: 1,
+                    width: 1,
+                    overflow: "hidden",
+                  }}
+                  aria-hidden="true"
+                >
+                  <label htmlFor="contact-company-name">Company</label>
+                  <input
+                    id="contact-company-name"
+                    ref={honeypotRef}
+                    name="company_name"
+                    type="text"
+                    tabIndex={-1}
+                    defaultValue=""
+                    readOnly
+                    onFocus={(e) => {
+                      e.target.removeAttribute("readonly");
+                    }}
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore
+                    data-bwignore
+                  />
+                </div>
                 {error && (
                   <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
                     {error}
@@ -227,10 +285,27 @@ const ContactForm = () => {
                   </label>
                 </div>
 
+                {siteKey ? (
+                  <div className="flex justify-center">
+                    <Turnstile
+                      key={turnstileKey}
+                      siteKey={siteKey}
+                      onSuccess={(t) => setTurnstileToken(t)}
+                      onExpire={() => setTurnstileToken(null)}
+                      onError={() => setTurnstileToken(null)}
+                    />
+                  </div>
+                ) : (
+                  <p className="p-3 bg-amber-50 text-amber-800 rounded-md text-sm text-center">
+                    The security check could not load, so messages cannot be sent right now.
+                    Please try again later or call us at (661) 524-6674.
+                  </p>
+                )}
+
                 <div>
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || !siteKey}
                     className="px-8 py-3 bg-[var(--primary)] text-white rounded-md font-helvetica font-bold hover:bg-[var(--primary-dark)] transition-colors disabled:opacity-70 flex items-center"
                   >
                     {loading ? (
