@@ -150,6 +150,14 @@ Firestore rules block public `create` on `contactMessages` and `volunteerApplica
 
 Implementation lives in `lib/form-protection/`; middleware rate-limits `POST /api/contact` and `POST /api/volunteer`.
 
+### Vercel deployment checklist
+
+After deploying to Vercel, confirm these steps so forms work in production:
+
+1. Set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in Vercel environment variables (Production at minimum).
+2. Add your production domains (`tbhfdn.org`, `www.tbhfdn.org`, and any Vercel preview URLs you test on) to the Turnstile widget in the Cloudflare dashboard.
+3. Redeploy if you add or change environment variables.
+
 ## Building for Production
 
 ```bash
