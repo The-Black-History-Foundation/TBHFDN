@@ -147,6 +147,7 @@ Firestore rules block public `create` on `contactMessages` and `volunteerApplica
 | `ADMIN_EMAIL` | Yes (volunteer) | Comma-separated admin notification recipients |
 | `FIREBASE_CLIENT_EMAIL` | Yes (forms) | Firebase service account email for server-side Firestore writes |
 | `FIREBASE_PRIVATE_KEY` | Yes (forms) | Firebase service account private key |
+| `NEXT_PUBLIC_WIKI_URL` | Optional | Public URL of the Railway-hosted community wiki (enables Wiki nav links and `/wiki` redirect) |
 
 Implementation lives in `lib/form-protection/`; middleware rate-limits `POST /api/contact` and `POST /api/volunteer`.
 
