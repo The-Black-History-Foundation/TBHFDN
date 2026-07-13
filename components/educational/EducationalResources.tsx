@@ -10,6 +10,7 @@ import {
   type ComingSoonCard,
   type ComingSoonCardIcon,
 } from "@/lib/coming-soon-cards";
+import { getWikiUrl } from "@/lib/wiki";
 
 const ICON_SVGS: Record<ComingSoonCardIcon, React.ReactNode> = {
   book: (
@@ -59,6 +60,7 @@ const EducationalResources = () => {
   const [comingSoonCards, setComingSoonCards] = useState<
     (ComingSoonCard & { id?: string })[]
   >(DEFAULT_COMING_SOON_CARDS.map((c, i) => ({ ...c, id: `default-${i}` })));
+  const wikiUrl = getWikiUrl();
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -272,6 +274,26 @@ const EducationalResources = () => {
             </motion.div>
           )}
         </div>
+
+        {wikiUrl && (
+          <div className="max-w-3xl mx-auto mt-10 bg-white p-8 rounded-xl shadow-md border border-gray-100 text-center">
+            <h3 className="text-2xl font-bold mb-3 text-[var(--text-primary)]">
+              Community Research Wiki
+            </h3>
+            <p className="text-[var(--text-secondary)] mb-6">
+              Explore and contribute to our community-built archive of Black
+              history research — biographies, places, events, and sources.
+            </p>
+            <a
+              href={wikiUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center bg-[var(--primary)] text-white px-6 py-3 rounded-md hover:bg-[var(--primary-dark)] transition-colors font-medium"
+            >
+              Visit the Research Wiki
+            </a>
+          </div>
+        )}
       </div>
     </section>
 

@@ -5,12 +5,14 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { Menu, X } from "lucide-react";
-import { usePathname } from "next/navigation"; // Import to detect current route
+import { usePathname } from "next/navigation";
+import { getWikiUrl } from "@/lib/wiki";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const pathname = usePathname(); // Get current route
+  const pathname = usePathname();
+  const wikiUrl = getWikiUrl();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -31,6 +33,9 @@ const Navbar = () => {
     { name: "Educational", path: "/educational" },
     { name: "Volunteer", path: "/volunteer" },
     { name: "Contact", path: "/contact" },
+    ...(wikiUrl
+      ? [{ name: "Wiki", path: wikiUrl, external: true as const }]
+      : []),
   ];
 
   return (
@@ -60,12 +65,38 @@ const Navbar = () => {
 
         <nav className="hidden md:flex items-center justify-center flex-1 mx-8">
           <div className="flex items-center justify-center space-x-10">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.path}
-                className="group relative font-helvetica font-medium px-2 py-1"
-              >
+            {navLinks.map((link) =>
+              "external" in link && link.external ? (
+                <a
+                  key={link.name}
+                  href={link.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative font-helvetica font-medium px-2 py-1"
+                >
+                  <span
+                    className={`block transition-all duration-300 ease-in-out ${
+                      scrolled ? "text-[var(--text-primary)]" : "text-white"
+                    } group-hover:opacity-0`}
+                  >
+                    {link.name}
+                  </span>
+                  <span
+                    className={`absolute top-0 left-0 right-0 px-2 py-1 block transition-all duration-300 ease-in-out
+                  ${scrolled ? "text-[var(--primary)]" : "text-[var(--secondary)]"}
+                  opacity-0 filter blur-none
+                  group-hover:opacity-100 group-hover:filter group-hover:blur-[2px]
+                  group-hover:scale-110`}
+                  >
+                    {link.name}
+                  </span>
+                </a>
+              ) : (
+                <Link
+                  key={link.name}
+                  href={link.path}
+                  className="group relative font-helvetica font-medium px-2 py-1"
+                >
                 {/* Normal text that fades out on hover */}
                 <span
                   className={`block transition-all duration-300 ease-in-out ${
@@ -87,7 +118,8 @@ const Navbar = () => {
                   {link.name}
                 </span>
               </Link>
-            ))}
+              )
+            )}
           </div>
         </nav>
 
@@ -133,16 +165,29 @@ const Navbar = () => {
             className="md:hidden bg-[var(--bg-primary)] shadow-lg overflow-hidden"
           >
             <div className="container mx-auto px-4 py-4 flex flex-col space-y-4">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.path}
-                  className="font-helvetica text-[var(--text-primary)] hover:text-[var(--primary)] py-2 px-4 transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  {link.name}
-                </Link>
-              ))}
+              {navLinks.map((link) =>
+                "external" in link && link.external ? (
+                  <a
+                    key={link.name}
+                    href={link.path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-helvetica text-[var(--text-primary)] hover:text-[var(--primary)] py-2 px-4 transition-colors"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {link.name}
+                  </a>
+                ) : (
+                  <Link
+                    key={link.name}
+                    href={link.path}
+                    className="font-helvetica text-[var(--text-primary)] hover:text-[var(--primary)] py-2 px-4 transition-colors"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {link.name}
+                  </Link>
+                )
+              )}
               <Link
                 href="/donate"
                 className="font-helvetica font-bold py-3 bg-[var(--primary)] text-white rounded-md text-center hover:bg-[var(--primary-dark)] transition-colors"

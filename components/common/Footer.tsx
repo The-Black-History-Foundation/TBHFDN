@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { getWikiUrl } from "@/lib/wiki";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const wikiUrl = getWikiUrl();
 
   const footerLinks = {
     aboutUs: [
@@ -17,6 +19,9 @@ const Footer = () => {
     getInvolved: [
       { name: "Volunteer", path: "/volunteer" },
       { name: "Donate", path: "/donate" },
+      ...(wikiUrl
+        ? [{ name: "Research Wiki", path: wikiUrl, external: true as const }]
+        : []),
     ],
     contact: [
       { name: "Contact Us", path: "/contact" },
@@ -81,12 +86,23 @@ const Footer = () => {
               <ul className="space-y-2">
                 {footerLinks.getInvolved.map((link) => (
                   <li key={link.name}>
-                    <Link
-                      href={link.path}
-                      className="font-helvetica text-gray-300 hover:text-white transition-colors"
-                    >
-                      {link.name}
-                    </Link>
+                    {"external" in link && link.external ? (
+                      <a
+                        href={link.path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-helvetica text-gray-300 hover:text-white transition-colors"
+                      >
+                        {link.name}
+                      </a>
+                    ) : (
+                      <Link
+                        href={link.path}
+                        className="font-helvetica text-gray-300 hover:text-white transition-colors"
+                      >
+                        {link.name}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
