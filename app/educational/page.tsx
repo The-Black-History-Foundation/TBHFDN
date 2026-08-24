@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Educational Resources | The Black History Foundation",
   description: "Access free educational resources, videos, and documents about Black history preservation and education. Download materials for educators, students, and community leaders from The Black History Foundation.",
-  keywords: "Black history education, educational resources, Black history documents, Black history videos, history preservation, nonprofit chatbot, AI in education, Black history teaching materials, downloadable resources, Alicia Lyttle, cultural preservation",
+  keywords: "Black history education, educational resources, Black history documents, Black history videos, history preservation, nonprofit chatbot, AI in education, Black history teaching materials, downloadable resources, cultural preservation",
   openGraph: {
     title: "Educational Resources | The Black History Foundation",
     description: "Access free educational resources, videos, and documents about Black history preservation and education. Download materials for educators, students, and community leaders from The Black History Foundation.",

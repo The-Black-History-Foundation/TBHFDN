@@ -111,9 +111,8 @@ const EducationalResources = () => {
               and contributing to the preservation of Black historical narratives.
             </p>
             <p className="text-[var(--text-secondary)]">
-              Our current collection includes a video presentation by Alicia Lyttle on leveraging AI technology for Black history education, 
-              and a comprehensive guide for creating unbiased AI chatbots for nonprofit organizations. We regularly update our resources 
-              to provide the most relevant and impactful educational tools.
+              Our current collection includes a comprehensive guide for creating unbiased AI chatbots for nonprofit organizations.
+              We regularly update our resources to provide the most relevant and impactful educational tools.
             </p>
           </div>
         </div>
@@ -154,44 +153,13 @@ const EducationalResources = () => {
               transition={{ duration: 0.5 }}
               className="bg-white rounded-xl shadow-md overflow-hidden"
             >
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-3">Ask AI - Alicia Lyttle</h3>
-                <p className="text-gray-600 mb-4">
-                  Learn about the intersection of AI technology and Black history education in this informative video.
+              <div className="p-6 text-center py-12">
+                <h3 className="text-xl font-bold mb-3 text-[var(--text-primary)]">
+                  Videos coming soon
+                </h3>
+                <p className="text-gray-600 max-w-lg mx-auto">
+                  We&apos;re preparing new educational videos. Check back soon, or explore our documents tab for downloadable resources.
                 </p>
-                <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden mb-4">
-                  <video
-                    controls
-                    className="w-full h-full object-cover"
-                    poster="/alicia_lyttle.png"
-                  >
-                    <source src="/videos/alicia_lyttle_ask_ai.mp4" type="video/mp4" />
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
-                <div className="flex justify-end">
-                  <a
-                    href="/videos/alicia_lyttle_ask_ai.mp4"
-                    download
-                    className="inline-flex items-center bg-[var(--primary)] text-white px-4 py-2 rounded-md hover:bg-[var(--primary-dark)] transition-colors"
-                  >
-                    <svg 
-                      className="w-5 h-5 mr-2" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24" 
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                      />
-                    </svg>
-                    Download Video
-                  </a>
-                </div>
               </div>
             </motion.div>
           )}
