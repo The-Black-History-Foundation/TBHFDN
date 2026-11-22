@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { getWikiUrl } from "@/lib/wiki";
+import { NCS_VEHICLE_DONATION_URL } from "@/lib/vehicle-donation";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -19,6 +20,11 @@ const Footer = () => {
     getInvolved: [
       { name: "Volunteer", path: "/volunteer" },
       { name: "Donate", path: "/donate" },
+      {
+        name: "Donate a Vehicle",
+        path: NCS_VEHICLE_DONATION_URL,
+        external: true as const,
+      },
       ...(wikiUrl
         ? [{ name: "Research Wiki", path: wikiUrl, external: true as const }]
         : []),

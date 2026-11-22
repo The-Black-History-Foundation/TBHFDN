@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Button from "../common/Button";
+import { NCS_VEHICLE_DONATION_URL } from "@/lib/vehicle-donation";
 import { Waves } from "../ui/waves-background";
 import { useTheme } from "next-themes";
 
@@ -157,6 +158,15 @@ const HeroSection = () => {
               className="border-white text-white "
             >
               Get Involved
+            </Button>
+            <Button
+              href={NCS_VEHICLE_DONATION_URL}
+              variant="outline"
+              size="lg"
+              className="border-white text-white"
+              external
+            >
+              Donate a Vehicle
             </Button>
 
              {/* Extra action buttons - Raffle and AI demo 

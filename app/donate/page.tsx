@@ -2,6 +2,7 @@ import Layout from "@/components/common/Layout";
 import DonateHero from "@/components/donate/DonateHero";
 import DonateImpact from "@/components/donate/DonateImpact";
 import DonateForm from "@/components/donate/DonateForm";
+import DonateVehicleSection from "@/components/donate/DonateVehicleSection";
 import NewsletterSection from "@/components/home/NewsletterSection";
 import type { Metadata } from "next";
 
@@ -38,6 +39,7 @@ export default function Donate() {
     <Layout>
       <DonateHero />
       <DonateImpact />
+      <DonateVehicleSection />
       <DonateForm />
       <NewsletterSection />
     </Layout>
