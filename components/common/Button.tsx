@@ -14,6 +14,8 @@ interface ButtonProps {
   fullWidth?: boolean;
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
+  /** Opens `href` in a new tab (for external URLs). */
+  external?: boolean;
 }
 
 const Button = ({
@@ -26,6 +28,7 @@ const Button = ({
   fullWidth = false,
   disabled = false,
   type = "button",
+  external = false,
 }: ButtonProps) => {
   // Define class variations
   const baseClasses =
@@ -64,6 +67,19 @@ const Button = ({
 
   // Return link or button
   if (href) {
+    const isExternal = external || href.startsWith("http");
+    if (isExternal) {
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={buttonClasses}
+        >
+          {buttonContent}
+        </a>
+      );
+    }
     return (
       <Link href={href} className={buttonClasses}>
         {buttonContent}
